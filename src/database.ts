@@ -55,6 +55,15 @@ export interface DatabaseExercise {
   steps_zh?: string;
 }
 
+export interface ApiKey {
+  id: number;
+  key_hash: string;
+  name: string;
+  is_active: boolean;
+  created_at: string;
+  last_used?: string;
+}
+
 class NVCDatabase {
   private db: Database;
 
@@ -100,6 +109,17 @@ class NVCDatabase {
         gratitude_expression_zh TEXT,
         steps_en TEXT,
         steps_zh TEXT
+      )
+    `);
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS api_keys (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        key_hash TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        is_active BOOLEAN DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        last_used DATETIME
       )
     `);
   }
@@ -237,6 +257,67 @@ class NVCDatabase {
     }
 
     return exercise as NVCExercise;
+  }
+
+  // API Key methods
+  async createApiKey(name: string): Promise<{ key: string; id: number }> {
+    const key = this.generateApiKey();
+    const keyHash = await this.hashApiKey(key);
+
+    const result = this.db
+      .query("INSERT INTO api_keys (key_hash, name) VALUES (?, ?) RETURNING id")
+      .get(keyHash, name) as { id: number };
+
+    return { key, id: result.id };
+  }
+
+  async validateApiKey(key: string): Promise<ApiKey | null> {
+    const keyHash = await this.hashApiKey(key);
+    const apiKey = this.db
+      .query("SELECT * FROM api_keys WHERE key_hash = ? AND is_active = 1")
+      .get(keyHash) as ApiKey | null;
+
+    if (apiKey) {
+      // Update last_used timestamp
+      this.db
+        .query("UPDATE api_keys SET last_used = CURRENT_TIMESTAMP WHERE id = ?")
+        .run(apiKey.id);
+    }
+
+    return apiKey;
+  }
+
+  getAllApiKeys(): ApiKey[] {
+    return this.db
+      .query("SELECT * FROM api_keys ORDER BY created_at DESC")
+      .all() as ApiKey[];
+  }
+
+  deactivateApiKey(id: number): boolean {
+    const result = this.db
+      .query("UPDATE api_keys SET is_active = 0 WHERE id = ?")
+      .run(id);
+    return result.changes > 0;
+  }
+
+  private generateApiKey(): string {
+    // Generate a secure random API key
+    const chars =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let result = "nvc_";
+    for (let i = 0; i < 32; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  }
+
+  private async hashApiKey(key: string): Promise<string> {
+    // Use Bun's built-in crypto for hashing
+    const encoder = new TextEncoder();
+    const data = encoder.encode(key);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
   }
 
   close() {

@@ -4,6 +4,7 @@ A RESTful API for Non-Violent Communication (NVC) exercises, built with Bun and 
 
 ## Features
 
+- **API Key Authentication**: Secure access with API key-based authentication
 - **Multilingual Support**: English and Chinese translations
 - **Exercise Categories**: 7 different types of NVC exercises
 - **Filtering**: Filter by type, difficulty, and target audience
@@ -25,12 +26,43 @@ A RESTful API for Non-Violent Communication (NVC) exercises, built with Bun and 
    bun install
    ```
 
-3. Start the development server:
+3. Initialize the database:
+   ```bash
+   bun run init-db
+   ```
+
+4. Create an API key:
+   ```bash
+   bun run api-keys create "My App"
+   ```
+
+5. Start the development server:
    ```bash
    bun run dev
    ```
 
 The API will be available at `http://localhost:3000`
+
+## Authentication
+
+This API uses API key-based authentication. You must include a valid API key in the `Authorization` header for all requests except health checks.
+
+### API Key Format
+```
+Authorization: Bearer nvc_your_api_key_here
+```
+
+### Creating API Keys
+```bash
+# Create a new API key
+bun run api-keys create "My Application"
+
+# List all API keys
+bun run api-keys list
+
+# Deactivate an API key
+bun run scripts/manage_api_keys.ts deactivate 1
+```
 
 ## API Reference
 
@@ -54,13 +86,16 @@ Retrieve a list of exercises with optional filtering.
 **Example Requests:**
 ```bash
 # Get all exercises
-curl http://localhost:3000/exercises
+curl -H "Authorization: Bearer nvc_your_api_key_here" \
+  http://localhost:3000/exercises
 
 # Get listening barrier exercises in Chinese
-curl "http://localhost:3000/exercises?type=listening-barriers&lang=zh"
+curl -H "Authorization: Bearer nvc_your_api_key_here" \
+  "http://localhost:3000/exercises?type=listening-barriers&lang=zh"
 
 # Get beginner exercises for individuals
-curl "http://localhost:3000/exercises?difficulty=beginner&targetAudience=individual"
+curl -H "Authorization: Bearer nvc_your_api_key_here" \
+  "http://localhost:3000/exercises?difficulty=beginner&targetAudience=individual"
 ```
 
 #### GET /exercises/:id
@@ -76,10 +111,12 @@ Retrieve a single exercise by ID.
 **Example Requests:**
 ```bash
 # Get exercise with ID 1
-curl http://localhost:3000/exercises/1
+curl -H "Authorization: Bearer nvc_your_api_key_here" \
+  http://localhost:3000/exercises/1
 
 # Get exercise with ID 1 in Chinese
-curl "http://localhost:3000/exercises/1?lang=zh"
+curl -H "Authorization: Bearer nvc_your_api_key_here" \
+  "http://localhost:3000/exercises/1?lang=zh"
 ```
 
 #### GET /health
@@ -147,6 +184,19 @@ curl http://localhost:3000/health
 
 ## Error Responses
 
+### 401 Unauthorized
+```json
+{
+  "error": "Missing Authorization header"
+}
+```
+
+```json
+{
+  "error": "Invalid API key"
+}
+```
+
 ### 400 Bad Request
 ```json
 {
@@ -172,12 +222,19 @@ curl http://localhost:3000/health
 
 ### JavaScript/Node.js
 ```javascript
+const API_KEY = 'nvc_your_api_key_here';
+const headers = { 'Authorization': `Bearer ${API_KEY}` };
+
 // Fetch all listening barrier exercises
-const response = await fetch('http://localhost:3000/exercises?type=listening-barriers');
+const response = await fetch('http://localhost:3000/exercises?type=listening-barriers', {
+  headers
+});
 const exercises = await response.json();
 
 // Fetch a specific exercise in Chinese
-const exercise = await fetch('http://localhost:3000/exercises/1?lang=zh');
+const exercise = await fetch('http://localhost:3000/exercises/1?lang=zh', {
+  headers
+});
 const data = await exercise.json();
 ```
 
@@ -185,30 +242,38 @@ const data = await exercise.json();
 ```python
 import requests
 
+API_KEY = 'nvc_your_api_key_here'
+headers = {'Authorization': f'Bearer {API_KEY}'}
+
 # Get all exercises
-response = requests.get('http://localhost:3000/exercises')
+response = requests.get('http://localhost:3000/exercises', headers=headers)
 exercises = response.json()
 
 # Get gratitude exercises in Chinese
-response = requests.get('http://localhost:3000/exercises', {
-    'params': {'type': 'gratitude', 'lang': 'zh'}
-})
+response = requests.get('http://localhost:3000/exercises', 
+    params={'type': 'gratitude', 'lang': 'zh'},
+    headers=headers
+)
 gratitude_exercises = response.json()
 ```
 
 ### cURL Examples
 ```bash
 # Get all observation-evaluation exercises
-curl "http://localhost:3000/exercises?type=observation-evaluation"
+curl -H "Authorization: Bearer nvc_your_api_key_here" \
+  "http://localhost:3000/exercises?type=observation-evaluation"
 
 # Get intermediate difficulty exercises
-curl "http://localhost:3000/exercises?difficulty=intermediate"
+curl -H "Authorization: Bearer nvc_your_api_key_here" \
+  "http://localhost:3000/exercises?difficulty=intermediate"
 
 # Get group exercises in Chinese
-curl "http://localhost:3000/exercises?targetAudience=group&lang=zh"
+curl -H "Authorization: Bearer nvc_your_api_key_here" \
+  "http://localhost:3000/exercises?targetAudience=group&lang=zh"
 
 # Get a specific exercise
-curl "http://localhost:3000/exercises/5"
+curl -H "Authorization: Bearer nvc_your_api_key_here" \
+  "http://localhost:3000/exercises/5"
 ```
 
 ## Database
@@ -244,6 +309,13 @@ nvc-api/
 # Development server with auto-reload
 bun run dev
 
+# Initialize database
+bun run init-db
+
+# API key management
+bun run api-keys create "App Name"
+bun run api-keys list
+
 # Type checking
 bun run tsc --noEmit
 ```
@@ -268,6 +340,36 @@ This project is open source and available under the MIT License.
 4. Add tests if applicable
 5. Submit a pull request
 
+## API Key Management
+
+### Creating API Keys
+```bash
+# Create a new API key
+bun run api-keys create "Mobile App"
+
+# List all API keys (shows metadata, not actual keys)
+bun run api-keys list
+
+# Deactivate an API key
+bun run scripts/manage_api_keys.ts deactivate 1
+```
+
+### Admin Endpoints
+For programmatic API key management:
+
+- `POST /admin/api-keys` - Create new API key
+- `GET /admin/api-keys` - List all API keys
+- `DELETE /admin/api-keys/:id` - Deactivate API key
+
+### Security Best Practices
+- Store API keys in environment variables
+- Never commit API keys to version control
+- Rotate keys regularly
+- Use separate keys for different applications
+- Monitor usage via the `last_used` timestamp
+
 ## Support
 
 For questions or issues, please create an issue in the project repository.
+
+For detailed authentication documentation, see [API_AUTHENTICATION.md](./API_AUTHENTICATION.md).

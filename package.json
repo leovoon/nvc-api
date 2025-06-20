@@ -9,7 +9,13 @@
     "data": "bun run scripts/import_from_clipboard.ts",
     "init-db": "bun run scripts/init_database.ts",
     "start:direct": "bun run src/index.ts",
-    "test:db": "bun run scripts/test_database.ts"
+    "test:db": "bun run scripts/test_database.ts",
+    "api-keys": "bun run scripts/manage_api_keys.ts",
+    "api-keys:create": "bun run scripts/manage_api_keys.ts create",
+    "api-keys:list": "bun run scripts/manage_api_keys.ts list",
+    "demo:auth": "bun run scripts/auth_demo.ts",
+    "validate:endpoints": "bun run scripts/validate_endpoints.ts",
+    "test:auth": "bun run scripts/test_auth.ts"
   },
   "dependencies": {
     "elysia": "latest",
